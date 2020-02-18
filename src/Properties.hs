@@ -11,11 +11,12 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE NoStarIsType #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Properties where
 
-import Data.Promotion.Prelude.Enum
+--import Data.Promotion.Prelude.Enum
 import Data.Singletons.Prelude
 import Data.Singletons.Prelude.Enum
 import Data.Singletons.TH
@@ -70,7 +71,7 @@ plusCong' n m p Refl = Refl
 
 multCong
   :: forall (n :: Zahlen) (m :: Zahlen) (p :: Zahlen). n :~: m
-  -> n * p :~: m * p
+  -> (n * p) :~: (m * p)
 multCong Refl = Refl
 
 negInv

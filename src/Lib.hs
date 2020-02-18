@@ -1,33 +1,43 @@
+--{-# OPTIONS_GHC -ddump-splices #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE AllowAmbiguousTypes#-}
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeInType #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE MultiParamTypeClasses#-}
+{-# LANGUAGE NoStarIsType #-}
+{-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Lib where
 
-import Data.Promotion.Prelude.Enum
+--import Data.Promotion.Prelude.Enum
 import Data.Type.Natural
 import Data.Singletons.Prelude
 import Data.Singletons.Prelude.Enum
 import Data.Singletons.TH
 import Data.Typeable
+import Data.Type.Equality
 
 import Unsafe.Coerce
+
+import Data.Kind                    (Type, Constraint)
 
 singletons [d|
   data Zahlen = Pos Nat | Neg Nat
     deriving (Show, Eq)
   |]
 
-deriving instance Typeable 'Pos
 deriving instance Typeable 'Neg
+deriving instance Typeable 'Pos
 
 singletons [d|
   data Sign = P | N
@@ -69,6 +79,7 @@ singletons [d|
   |]
 
 singletons [d|
+
   absolute'
     :: Zahlen
     -> Nat
@@ -140,6 +151,59 @@ singletons [d|
         True -> Pos $ fromInteger n
         False -> Neg $ fromInteger n
   |]
+
+class IsCommutativeRing z where
+  type Zero' :: z
+  type One' :: z
+  type Inv (m :: z) :: z
+
+  oneIsNotZero :: One' :~: Zero' -> Void
+  associativity
+    :: forall x y z. Sing x
+    -> Sing y
+    -> Sing z
+    -> (x + y) + z :~: x + (y + z)
+  commutativity
+    :: forall x y. Sing x
+    -> Sing y
+    -> x + y :~: y + z
+  distr
+    :: forall x y z. Sing x
+    -> Sing y
+    -> Sing z
+    -> (x * (y + z)) :~: ((x * y) + (x * z))
+  zeroNeutral
+    :: forall x. Sing x
+    -> x + Zero' :~: x
+  oneNeutral
+    :: forall x. Sing x
+    -> x * One' :~: x
+  inverseAxiom
+    :: forall x. Sing x
+    -> (x + Inv x) :~: Zero'
+
+instance IsCommutativeRing Zahlen where
+  type Zero' = ('Pos 'Z)
+  type One' = ('Pos (S Z))
+  type Inv m = Inverse m
+--   zeroIdentity :: forall x m. Absolute'' x :~: 'Z -> x + m :~: m
+--   zeroIdentity Refl = Refl `because` (Proxy )
+
+class IsCommutativeRing z => IsInteger z where
+  type Signum (m :: z) :: Sign
+  type Absolute'' (m :: z) :: Nat
+
+  zeroEquality :: (Absolute'' x ~ Absolute'' y, Absolute'' x ~ 'Z) => x :~: y
+  zeroEquality = unsafeCoerce Refl
+  zeroEquality' :: Absolute'' x :~: Absolute'' y -> Absolute'' x :~: 'Z -> x :~: y
+  zeroEquality' Refl Refl = unsafeCoerce Refl
+  zeroIdentity :: forall x m. Absolute'' x :~: 'Z -> x + m :~: m
+--  zeroIdentity = Refl
+
+instance IsInteger Zahlen where
+  type Signum ('Pos m) = P
+  type Signum ('Neg m) = N
+  type Absolute'' (_ m) = m
 
 natToZ :: Sing n -> Sing (Pos n)
 natToZ SZ = SPos SZ
